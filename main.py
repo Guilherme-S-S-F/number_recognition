@@ -1,53 +1,44 @@
+from keras.models import load_model
+from PIL import Image, ImageOps
 import numpy as np
 import matplotlib.pyplot as plt
-from keras.datasets import mnist
-from keras.models import Sequential
-from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
-from keras.utils import to_categorical
 
-# 1. Carregar os dados MNIST
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
+# Função de preparação da imagem
+def prepare_image(path):
+    # Abrir imagem e converter para escala de cinza
+    img = Image.open(path).convert('L')
 
-# 2. Normalizar e ajustar formato
-x_train = x_train.astype('float32') / 255.0
-x_test = x_test.astype('float32') / 255.0
-x_train = np.expand_dims(x_train, -1)
-x_test = np.expand_dims(x_test, -1)
+    # Inverter cores: MNIST usa dígito branco em fundo preto
+    img = ImageOps.invert(img)
 
-# 3. Codificar as labels (one-hot encoding)
-y_train_cat = to_categorical(y_train, 10)
-y_test_cat = to_categorical(y_test, 10)
+    # Redimensionar para 28x28
+    img = img.resize((28, 28))
 
-# 4. Construir o modelo
-model = Sequential()
-model.add(Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(28, 28, 1)))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Conv2D(64, kernel_size=(3, 3), activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Flatten())
-model.add(Dense(128, activation='relu'))
-model.add(Dense(10, activation='softmax'))
+    # Converter para array, normalizar e ajustar dimensões
+    img_arr = np.array(img).astype('float32') / 255.0
+    img_arr = np.expand_dims(img_arr, axis=-1)  # Adiciona canal (28, 28, 1)
+    img_arr = np.expand_dims(img_arr, axis=0)   # Adiciona batch (1, 28, 28, 1)
 
-# 5. Compilar
-model.compile(optimizer='adam',
-              loss='categorical_crossentropy',
-              metrics=['accuracy'])
+    return img_arr, img
 
-# 6. Treinar
-model.fit(x_train, y_train_cat, epochs=5, batch_size=64, validation_split=0.1)
+# Carregar o modelo previamente treinado
+model = load_model('mnist_number_recognition_keras.h5')
 
-# 7. Avaliar
-loss, acc = model.evaluate(x_test, y_test_cat)
-print(f"\nAcurácia no teste: {acc:.4f}")
+# Caminho da imagem a ser testada
+image_path = 'numero_teste.png'
 
-# 8. Salvar o modelo
-model.save('mnist_number_recognition_keras.h5')
+# Preparar a imagem
+img_input, img_processed = prepare_image(image_path)
 
-# 9. Visualizar algumas previsões
-predictions = model.predict(x_test)
+# Fazer predição
+prediction = model.predict(img_input)
+predicted_number = np.argmax(prediction)
 
-for i in range(5):
-    plt.imshow(x_test[i].reshape(28, 28), cmap='gray')
-    plt.title(f"Real: {y_test[i]}, Predito: {np.argmax(predictions[i])}")
-    plt.axis('off')
-    plt.show()
+# Mostrar resultado
+print(f"O número reconhecido é: {predicted_number}")
+
+# Visualizar a imagem usada na predição
+plt.imshow(img_processed, cmap='gray')
+plt.title(f"Predição: {predicted_number}")
+plt.axis('off')
+plt.show()
